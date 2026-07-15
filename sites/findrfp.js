@@ -10,6 +10,8 @@ async function scrapeListings() {
   const $ = cheerio.load(data);
   const results = [];
 
+  // The results table has no id/class to key off - tabindex="4" is the only
+  // attribute that reliably distinguishes it from the page's other tables.
   $('table[tabindex="4"] tr').each((i, row) => {
     if (i === 0) return; // header row
     const cells = $(row).find('td');

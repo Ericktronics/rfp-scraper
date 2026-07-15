@@ -66,6 +66,11 @@ async function scrapeDetail(url) {
   const { data } = await http.get(url);
   const $ = cheerio.load(data);
 
+  // PhilGEPS crams name, position, full address, phone(s) and email into one
+  // <br>-separated blob with no separate fields per piece of data, and the
+  // line order/count varies per listing (a title line isn't always present).
+  // Pulling phone/email out by pattern is more reliable than trying to
+  // guess a fixed line position for each.
   const contactLines = normalizedBlockText($, '#lblDisplayContactPerson').split('\n').filter(Boolean);
   const contactRaw = contactLines.join(' | ') || null;
   const phoneMatch = contactRaw ? contactRaw.match(PHONE_RE) : null;
@@ -78,6 +83,10 @@ async function scrapeDetail(url) {
     ? projectNameLine.replace(/^project name\s*:\s*/i, '').trim()
     : textOf($, '#lblDisplayTitle') || null;
 
+  // The currency label sits in its own unnamed span next to the amount
+  // (id="Label34" in the markup) rather than a stable named field, and
+  // PhilGEPS's Approved Budget for the Contract is always quoted in PHP -
+  // so it's simpler and just as reliable to hardcode the prefix.
   const budgetValue = textOf($, '#lblDisplayBudget');
 
   return {

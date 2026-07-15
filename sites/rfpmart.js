@@ -31,6 +31,12 @@ async function scrapeListings() {
 // to read, which is genuinely useful for drafting a proposal, but the
 // issuing agency's name and any contact person/phone/email are not shown -
 // only unlocked by buying the document or subscribing.
+//
+// The detail page has no per-field markup (everything's a plain <p>), so
+// fields can't be selected by class/id. Instead we flatten the whole block
+// to text and use extractLabeledFields to slice out the value after each
+// label up to the next one - order in this array doesn't matter, it's
+// resolved by where each label actually appears on the page.
 const FIELD_LABELS = [
   ['postedDate', 'Posted Date'],
   ['productId', 'Product \\(RFP\\/RFQ\\/RFI\\/Solicitation\\/Tender\\/Bid Etc\\.\\) ID'],
@@ -53,6 +59,11 @@ async function scrapeDetail(url) {
   const text = normalizedBlockText($, '.cat-des.p15');
   const fields = extractLabeledFields(text, FIELD_LABELS);
 
+  // The page's one-sentence "Government Authority located in ..." blurb sits
+  // between the product ID and the "[*] Budget" label with no label of its
+  // own, so extractLabeledFields sweeps it into the productId slice as a
+  // second line. Split it back out here rather than teaching the extractor
+  // about unlabeled text.
   const productLines = (fields.productId || '').split('\n').map((s) => s.trim()).filter(Boolean);
   const productId = productLines[0] || null;
   const agencyHint = productLines.slice(1).join(' ') || null;

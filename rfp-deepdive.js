@@ -67,6 +67,10 @@ async function main() {
 
     try {
       const details = await site.scrapeDetail(listing.url);
+      // The detail page is the more authoritative source when it has a
+      // value (e.g. rfpmart's own title isn't scraped, philgeps' deadline
+      // has a time component the listing grid lacks) - fall back to the
+      // listing's own fields only where the detail scraper came back null.
       deepDives.push({
         source: listing.source,
         url: listing.url,
