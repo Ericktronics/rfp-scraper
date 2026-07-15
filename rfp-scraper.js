@@ -1,6 +1,7 @@
 // Runs every registered site's scrapeListings() and saves the combined,
 // keyword-matched results. Per-site logic lives in sites/*.js - this file
 // only orchestrates and writes output.
+require('dotenv').config(); // loads .env (e.g. SAM_GOV_API_KEY) if present - see .env.example
 const fs = require('fs');
 const path = require('path');
 const { toCsv } = require('./lib/csv');

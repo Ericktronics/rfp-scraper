@@ -5,14 +5,17 @@
 // the source actually publishes it.
 //
 // Reality check per source:
-// - philgeps.gov.ph is a public government portal and freely publishes full
-//   contact details.
-// - findrfp.com, rfpdb.com and rfpmart.com are paid aggregators. They gate
-//   contact info behind a login/subscription/document purchase. Each site
-//   module pulls whatever is genuinely free on the page and sets
-//   `accessNote` explaining what's missing and why - nothing is invented.
+// - philgeps.gov.ph and sam.gov are public government portals and freely
+//   publish full contact details (sam.gov needs a free API key - see
+//   sites/samgov.js and the README).
+// - findrfp.com, rfpdb.com, rfpmart.com and odwyerpr.com are paid
+//   aggregators/publications. They gate contact info behind a
+//   login/subscription/document purchase. Each site module pulls whatever
+//   is genuinely free on the page and sets `accessNote` explaining what's
+//   missing and why - nothing is invented.
 //
 // Per-site parsing lives in sites/*.js; this file only orchestrates.
+require('dotenv').config(); // loads .env (e.g. SAM_GOV_API_KEY) if present - see .env.example
 const fs = require('fs');
 const path = require('path');
 const { toCsv } = require('./lib/csv');
@@ -30,6 +33,9 @@ const CSV_HEADERS = [
   'budget',
   'targetLocation',
   'deadline',
+  'solicitationNumber',
+  'deliveryPeriod',
+  'remarks',
   'contactPerson',
   'contactNumber',
   'contactEmail',

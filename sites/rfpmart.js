@@ -37,20 +37,25 @@ async function scrapeListings() {
 // to text and use extractLabeledFields to slice out the value after each
 // label up to the next one - order in this array doesn't matter, it's
 // resolved by where each label actually appears on the page.
+// Every label is \b-bounded so it can only match a whole word/phrase, never
+// a substring - without this, bare /State/i matches inside a product ID
+// like "ESTATE-11763" (at the "STATE" in "E|STATE|-11763"), truncating
+// everything captured before it. Confirmed live: this was silently
+// corrupting projectName/fundingDonor to garbage on that exact listing.
 const FIELD_LABELS = [
-  ['postedDate', 'Posted Date'],
-  ['productId', 'Product \\(RFP\\/RFQ\\/RFI\\/Solicitation\\/Tender\\/Bid Etc\\.\\) ID'],
-  ['budget', '\\[\\*\\]\\s*Budget'],
-  ['scopeOfService', '\\[\\*\\]\\s*Scope of Service'],
-  ['eligibility', '\\[\\*\\]\\s*Eligibility'],
-  ['workPerformance', '\\[\\*\\]\\s*Work Performance'],
-  ['proposalSubmission', '\\[\\*\\]\\s*Proposal Submission'],
-  ['expiryDate', 'Expiry Date'],
-  ['questionDeadline', 'Question Answer Deadline'],
-  ['category', 'Category'],
-  ['country', 'Country'],
-  ['state', 'State'],
-  ['costToDownload', 'Cost to Download This RFP Document'],
+  ['postedDate', '\\bPosted Date\\b'],
+  ['productId', '\\bProduct \\(RFP\\/RFQ\\/RFI\\/Solicitation\\/Tender\\/Bid Etc\\.\\) ID\\b'],
+  ['budget', '\\[\\*\\]\\s*Budget\\b'],
+  ['scopeOfService', '\\[\\*\\]\\s*Scope of Service\\b'],
+  ['eligibility', '\\[\\*\\]\\s*Eligibility\\b'],
+  ['workPerformance', '\\[\\*\\]\\s*Work Performance\\b'],
+  ['proposalSubmission', '\\[\\*\\]\\s*Proposal Submission\\b'],
+  ['expiryDate', '\\bExpiry Date\\b'],
+  ['questionDeadline', '\\bQuestion Answer Deadline\\b'],
+  ['category', '\\bCategory\\b'],
+  ['country', '\\bCountry\\b'],
+  ['state', '\\bState\\b'],
+  ['costToDownload', '\\bCost to Download This RFP Document\\b'],
 ];
 
 async function scrapeDetail(url) {

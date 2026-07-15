@@ -89,6 +89,12 @@ async function scrapeDetail(url) {
   // so it's simpler and just as reliable to hardcode the prefix.
   const budgetValue = textOf($, '#lblDisplayBudget');
 
+  // Pre-bid Conference is conditionally rendered - only present on listings
+  // that actually have one scheduled, so these are often empty.
+  const preBidDate = textOf($, '#lblPreBidDate');
+  const preBidTime = textOf($, '#lblPreBidTime');
+  const preBidVenue = textOf($, '#lblPreBidVenue');
+
   return {
     projectName,
     opportunityTitle: textOf($, '#lblDisplayTitle') || null,
@@ -100,6 +106,12 @@ async function scrapeDetail(url) {
     datePublished: textOf($, '#lblDisplayDatePublish') || null,
     procurementMode: textOf($, '#lblDisplayProcureMode') || null,
     category: textOf($, '#lblDisplayCategory') || null,
+    solicitationNumber: textOf($, '#lblDisplaySolNumber') || null,
+    classification: textOf($, '#lblDisplayClass') || null,
+    deliveryPeriod: textOf($, '#lblDisplayPeriod') || null,
+    clientAgency: textOf($, '#lblDisplayClient') || null,
+    preBidConference: preBidDate ? { date: preBidDate, time: preBidTime || null, venue: preBidVenue || null } : null,
+    remarks: textOf($, '#lblReason') || null,
     contactPerson: contactLines[0] || null,
     contactNumber: phoneMatch ? phoneMatch[0].trim() : null,
     contactEmail: emailMatch ? emailMatch[0] : null,
