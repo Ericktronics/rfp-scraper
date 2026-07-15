@@ -1,7 +1,7 @@
 const cheerio = require('cheerio');
 const { http } = require('../lib/http');
 const { matchesKeywords } = require('../lib/keywords');
-const { normalizedBlockText, extractLabeledFields } = require('../lib/text');
+const { normalizedBlockText, extractLabeledFields, detectFocusAreas } = require('../lib/text');
 
 const id = 'rfpmart.com';
 
@@ -83,6 +83,11 @@ async function scrapeDetail(url) {
     deadline: fields.expiryDate || null,
     questionDeadline: fields.questionDeadline || null,
     eligibility: fields.eligibility || null,
+    // rfpmart's own Category is a broad site taxonomy (e.g. "Marketing and
+    // Branding") - prefer the more specific discipline tags detected in the
+    // actual scope of work when any are found, falling back to the site's
+    // category otherwise.
+    focusArea: detectFocusAreas(fields.scopeOfService) || fields.category || null,
     workPerformance: fields.workPerformance || null,
     proposalSubmission: fields.proposalSubmission || null,
     category: fields.category || null,

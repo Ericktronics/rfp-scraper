@@ -61,11 +61,34 @@ Output is written to `output/`:
 
 - `rfp-results-<date>.json` / `.csv` - listings (source, title, url, location, agency, deadline)
 - `rfp-deepdive-<date>.json` / `.csv` - full details per listing (projectName,
-  opportunityDescription, fundingDonor, budget, targetLocation, solicitationNumber,
-  deliveryPeriod, remarks, contactPerson, contactNumber, contactEmail, accessNote, ...).
-  A few fields are source-specific and only appear in the JSON, not the CSV -
-  e.g. philgeps' `preBidConference` (date/time/venue) and rfpmart's
-  `eligibility`/`workPerformance`/`proposalSubmission`.
+  opportunityDescription, fundingDonor, budget, targetLocation, focusArea,
+  eligibility, solicitationNumber, deliveryPeriod, remarks, contactPerson,
+  contactNumber, contactEmail, accessNote, ...). `focusArea` is the specific
+  marketing/PR discipline the RFP is for (Branding, Social Media, Public
+  Relations, ...) - distinct from a source's own generic procurement
+  category (e.g. philgeps' "Consulting Services"). It's the source's own
+  category tags when they're already discipline-specific (rfpdb, odwyerpr),
+  otherwise a best-effort tagger (`detectFocusAreas` in `lib/text.js`) that
+  scans the title/description for known discipline keywords and returns
+  null rather than guessing if nothing matches - see philgeps.gov.ph's
+  ~2/11 hit rate in practice, since most of its "marketing"-matched listings
+  are generic government procurement, not marketing services themselves.
+  `eligibility` (who's allowed to bid) has a dedicated field on rfpmart and
+  (once verified) sam.gov. philgeps has no dedicated field either, but its
+  abstract often states real bidder criteria in free text (financial
+  capacity thresholds, nationality restrictions) - `sites/philgeps.js`
+  scans for phrases that reliably introduce this ("Bidders should have
+  completed...", "Bidding is restricted to...") rather than trying to
+  isolate "the eligibility paragraph" positionally, since its structure
+  varies by agency template. Verified against two differently-formatted
+  real listings; still null on the ~10/11 listings that simply don't state
+  any criteria (mostly small Negotiated Procurement/RFQ notices). rfpdb and
+  odwyerpr have neither a dedicated field nor reliable free-text criteria to
+  extract (redacted/truncated description, or a news blurb instead of the
+  actual solicitation, respectively) - see the comment in each site's
+  `scrapeDetail` for why. A few fields are source-specific and only appear in the JSON, not the
+  CSV - e.g. philgeps' `preBidConference` (date/time/venue) and rfpmart's
+  `workPerformance`/`proposalSubmission`.
 
 `deepdive` reads the most recent `rfp-results-*.json` in `output/` by
 default, or accepts an explicit path: `node rfp-deepdive.js output/rfp-results-2026-07-15.json`.

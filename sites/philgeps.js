@@ -1,9 +1,58 @@
 const cheerio = require('cheerio');
 const { http } = require('../lib/http');
 const { matchesKeywords } = require('../lib/keywords');
-const { textOf, normalizedBlockText, PHONE_RE, EMAIL_RE } = require('../lib/text');
+const { textOf, normalizedBlockText, PHONE_RE, EMAIL_RE, detectFocusAreas } = require('../lib/text');
 
 const id = 'philgeps.gov.ph';
+
+// The abstract's eligibility-relevant text isn't a dedicated field and its
+// surrounding structure varies by agency/template (confirmed against two
+// real, differently-formatted listings), so instead of trying to isolate
+// "the eligibility paragraph" positionally, we scan for phrases that
+// reliably introduce genuine per-listing bidder criteria and keep whatever
+// clause follows each one, up to the next period. A generic RA 9184
+// boilerplate paragraph ("All particulars relative to Eligibility
+// Statement... shall be governed by the pertinent provisions of R.A. 9184
+// and its IRR") is stripped first since it's identical across nearly every
+// listing and carries no listing-specific information.
+const PHILGEPS_BOILERPLATE_RE =
+  /all particulars relative to eligibility statement[\s\S]*?pertinent provisions of r\.?a\.?\s*9184[^.]*\./i;
+
+// A "sentence end" is a period followed by whitespace and then either an
+// uppercase letter, a new numbered item like "4)", or end of string. Plain
+// "[^.]*\." stops at the FIRST period no matter what, which breaks on
+// abbreviations like "RA No. 5183." - it would cut the match off right
+// after "No." and silently drop "5183" entirely. Confirmed live: this was
+// the actual bug on the SBMA listing below before this fix.
+const SENTENCE_END = String.raw`[\s\S]*?\.(?=\s+(?:[A-Z]|\d+\)|$))`;
+
+const PHILGEPS_ELIGIBILITY_MARKERS = [
+  new RegExp(String.raw`identified bidder has experienced?${SENTENCE_END}`, 'i'),
+  new RegExp(String.raw`bidders?\s+(?:should|must)\s+have\s+completed${SENTENCE_END}`, 'i'),
+  new RegExp(String.raw`bidding is restricted to${SENTENCE_END}`, 'i'),
+  new RegExp(String.raw`description of an eligible bidder${SENTENCE_END}`, 'i'),
+];
+
+// Line breaks in PhilGEPS's abstract are often just word-wrap (a single
+// numbered item can span a dozen short lines), not paragraph boundaries -
+// reflowing to one line before matching avoids splitting a marker phrase
+// across two array entries.
+function extractPhilgepsEligibility(descriptionLines) {
+  if (!descriptionLines.length) return null;
+  const flat = descriptionLines.join(' ').replace(PHILGEPS_BOILERPLATE_RE, ' ').replace(/\s+/g, ' ');
+
+  const matches = PHILGEPS_ELIGIBILITY_MARKERS.map((re) => flat.match(re))
+    .filter(Boolean)
+    // Sort by where each match actually appears in the text, not by the
+    // order markers happen to be listed above - otherwise a later-in-text
+    // clause (e.g. "restricted to...") could get joined before an
+    // earlier one (e.g. "description of an eligible bidder..."),
+    // producing an order that doesn't match the source.
+    .sort((a, b) => a.index - b.index)
+    .map((m) => m[0].trim());
+
+  return matches.length ? matches.join(' ') : null;
+}
 
 async function scrapeListings(keyword = 'marketing') {
   const baseUrl =
@@ -105,7 +154,16 @@ async function scrapeDetail(url) {
     deadline: textOf($, '#lblDisplayCloseDateTime') || null,
     datePublished: textOf($, '#lblDisplayDatePublish') || null,
     procurementMode: textOf($, '#lblDisplayProcureMode') || null,
+    // lblDisplayCategory is PhilGEPS's own procurement category (Goods,
+    // Consulting Services, Vehicles, ...) - says nothing about the kind of
+    // marketing work involved, so it's not a substitute for focusArea.
     category: textOf($, '#lblDisplayCategory') || null,
+    focusArea: detectFocusAreas(`${textOf($, '#lblDisplayTitle')} ${description || ''}`) || null,
+    // Best-effort marker-based extraction (see extractPhilgepsEligibility
+    // above) - many listings (especially small Negotiated Procurement /
+    // RFQ ones) simply don't state any bidder-eligibility criteria at all,
+    // in which case this is null, same as before.
+    eligibility: extractPhilgepsEligibility(descriptionLines),
     solicitationNumber: textOf($, '#lblDisplaySolNumber') || null,
     classification: textOf($, '#lblDisplayClass') || null,
     deliveryPeriod: textOf($, '#lblDisplayPeriod') || null,

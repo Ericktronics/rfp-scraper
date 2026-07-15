@@ -22,7 +22,16 @@ const API_URL = 'https://api.sam.gov/opportunities/v2/search';
 
 // Advertising, PR, and marketing-consulting NAICS codes. SAM.gov's ncode
 // param takes a comma-separated list. Widen/narrow by editing this list.
+// Doubles as the focusArea lookup below, so keep the two in sync.
 const NAICS_CODES = ['541810', '541613', '541820', '541830', '541840'];
+
+const NAICS_FOCUS_AREAS = {
+  541810: 'Advertising',
+  541613: 'Marketing Consulting',
+  541820: 'Public Relations',
+  541830: 'Media Buying',
+  541840: 'Media Representation',
+};
 
 function requireApiKey() {
   const apiKey = process.env.SAM_GOV_API_KEY;
@@ -49,6 +58,8 @@ function emptyDetails(accessNote) {
     budget: null,
     targetLocation: null,
     deadline: null,
+    focusArea: null,
+    eligibility: null,
     contactPerson: null,
     contactNumber: null,
     contactEmail: null,
@@ -123,6 +134,12 @@ async function scrapeDetail(url) {
       [opp.placeOfPerformance?.city?.name, opp.placeOfPerformance?.state?.code].filter(Boolean).join(', ') ||
       null,
     deadline: opp.responseDeadLine || null,
+    focusArea: NAICS_FOCUS_AREAS[opp.naicsCode] || null,
+    // typeOfSetAsideDescription is SAM.gov's own eligibility field (e.g.
+    // "Total Small Business Set-Aside", "Service-Disabled Veteran-Owned
+    // Small Business Set-Aside") - same UNVERIFIED caveat as the rest of
+    // this module applies to the exact field name.
+    eligibility: opp.typeOfSetAsideDescription || null,
     contactPerson: primary.fullName || null,
     contactNumber: primary.phone || null,
     contactEmail: primary.email || null,

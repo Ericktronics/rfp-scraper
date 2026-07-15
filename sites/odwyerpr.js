@@ -1,5 +1,6 @@
 const cheerio = require('cheerio');
 const { http } = require('../lib/http');
+const { detectFocusAreas } = require('../lib/text');
 
 const id = 'odwyerpr.com';
 
@@ -131,6 +132,12 @@ async function scrapeDetail(url) {
     targetLocation: null,
     deadline: null,
     category: secondaryCategories || null,
+    focusArea: secondaryCategories || detectFocusAreas(description),
+    // No dedicated eligibility field - the free story is a short news
+    // blurb about the RFP, not the solicitation itself, so it doesn't
+    // carry formal bidder-eligibility criteria (that would be in the
+    // gated document).
+    eligibility: null,
     contactPerson: null,
     contactNumber: null,
     contactEmail: null,

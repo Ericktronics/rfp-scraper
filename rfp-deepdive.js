@@ -33,6 +33,8 @@ const CSV_HEADERS = [
   'budget',
   'targetLocation',
   'deadline',
+  'focusArea',
+  'eligibility',
   'solicitationNumber',
   'deliveryPeriod',
   'remarks',

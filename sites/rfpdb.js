@@ -1,7 +1,7 @@
 const cheerio = require('cheerio');
 const { http, rfpdbAgent } = require('../lib/http');
 const { matchesKeywords } = require('../lib/keywords');
-const { textOf } = require('../lib/text');
+const { textOf, detectFocusAreas } = require('../lib/text');
 
 const id = 'rfpdb.com';
 
@@ -66,6 +66,13 @@ async function scrapeDetail(url) {
     ? metaDescription.match(/^(?:The\s+)?(.+?)\s+(?:is|are)\s+(?:seeking|pleased|soliciting|requesting)\b/i)
     : null;
 
+  // rfpdb's own tags (Branding, Graphic Design, Advertising, Public
+  // Relations, Web Development, ...) are already specific marketing
+  // disciplines, unlike e.g. philgeps' generic procurement category - use
+  // them as focusArea directly rather than re-deriving from the (often
+  // truncated-to-160-chars) description.
+  const categoryTags = $('ul.categories li').map((_, el) => $(el).text().trim()).get().join(', ') || null;
+
   return {
     projectName: textOf($, 'h1[itemprop="name"]') || null,
     opportunityTitle: textOf($, 'h1[itemprop="name"]') || null,
@@ -74,7 +81,12 @@ async function scrapeDetail(url) {
     budget: null,
     targetLocation: textOf($, '[itemprop="location"]') || null,
     deadline: textOf($, 'time[itemprop="endDate"]') || null,
-    category: $('ul.categories li').map((_, el) => $(el).text().trim()).get().join(', ') || null,
+    category: categoryTags,
+    focusArea: categoryTags || detectFocusAreas(description),
+    // No dedicated eligibility field, and the description is either
+    // redacted or truncated to ~160 chars, nowhere near deep enough to
+    // reliably reach any bidder-eligibility criteria.
+    eligibility: null,
     contactPerson: null,
     contactNumber: null,
     contactEmail: null,

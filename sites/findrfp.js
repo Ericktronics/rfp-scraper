@@ -43,6 +43,8 @@ async function scrapeDetail() {
     budget: null,
     targetLocation: null,
     deadline: null,
+    focusArea: null,
+    eligibility: null,
     contactPerson: null,
     contactNumber: null,
     contactEmail: null,
