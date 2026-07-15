@@ -43,20 +43,34 @@ async function scrapeListings() {
   return results.filter((r) => matchesKeywords(`${r.title} ${r.description} ${r.categories}`));
 }
 
-// Paid aggregator. The description is intentionally redacted (words masked
-// with asterisks) for non-members, and contact info requires a login.
+// Paid aggregator. The visible description is intentionally redacted (words
+// masked with asterisks) for non-members, and contact info requires a
+// login. BUT the page's SEO <meta name="description"> tag is generated from
+// the original, unredacted text (truncated to ~160 characters) - it's
+// public markup served to every visitor/crawler, not a bypass of any access
+// control, and it often reveals the actual agency name the body hides.
 async function scrapeDetail(url) {
   const { data } = await http.get(url, { httpsAgent: rfpdbAgent });
   const $ = cheerio.load(data);
 
-  const description = textOf($, 'p#content[itemprop="description"]') || null;
-  const isRedacted = /\*{2,}/.test(description || '');
+  const bodyDescription = textOf($, 'p#content[itemprop="description"]') || null;
+  const metaDescription = $('meta[name="description"]').attr('content')?.trim() || null;
+  const isRedacted = /\*{2,}/.test(bodyDescription || '');
+  const usedMeta = Boolean(isRedacted && metaDescription);
+  const description = usedMeta ? metaDescription : bodyDescription;
+
+  // Meta descriptions here tend to open with the agency's name, e.g.
+  // "The X is seeking..." or "X is pleased to release...". Only matches
+  // these common openings - anything else is left null rather than guessed.
+  const agencyMatch = usedMeta
+    ? metaDescription.match(/^(?:The\s+)?(.+?)\s+(?:is|are)\s+(?:seeking|pleased|soliciting|requesting)\b/i)
+    : null;
 
   return {
     projectName: textOf($, 'h1[itemprop="name"]') || null,
     opportunityTitle: textOf($, 'h1[itemprop="name"]') || null,
     opportunityDescription: description,
-    fundingDonor: null,
+    fundingDonor: agencyMatch ? agencyMatch[1].trim() : null,
     budget: null,
     targetLocation: textOf($, '[itemprop="location"]') || null,
     deadline: textOf($, 'time[itemprop="endDate"]') || null,
@@ -66,7 +80,11 @@ async function scrapeDetail(url) {
     contactEmail: null,
     contactRaw: null,
     accessNote:
-      (isRedacted ? 'Description is partially redacted for non-members. ' : '') +
+      (usedMeta
+        ? "Body description is redacted for non-members; the description above was recovered from the page's public SEO meta tag instead, so it's likely truncated to ~160 characters. "
+        : isRedacted
+          ? 'Description is partially redacted for non-members. '
+          : '') +
       'rfpdb.com requires a free account login to see full RFP details, including any contact person or number.',
   };
 }
