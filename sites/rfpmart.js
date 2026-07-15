@@ -1,0 +1,87 @@
+const cheerio = require('cheerio');
+const { http } = require('../lib/http');
+const { matchesKeywords } = require('../lib/keywords');
+const { normalizedBlockText, extractLabeledFields } = require('../lib/text');
+
+const id = 'rfpmart.com';
+
+async function scrapeListings() {
+  const url = 'https://www.rfpmart.com/marketing-and-branding-rfp-government-contract.html';
+  const { data } = await http.get(url);
+  const $ = cheerio.load(data);
+  const script = $('script[type="application/ld+json"]').first().html();
+  if (!script) return [];
+
+  const json = JSON.parse(script);
+  const items = (json['@itemListElement'] || []).map((entry) => entry.item);
+
+  const results = items.map((item) => ({
+    source: id,
+    title: item.name,
+    url: item.url,
+    location: '',
+    agency: '',
+    deadline: item.offers ? item.offers.priceValidUntil : '',
+  }));
+
+  return results.filter((r) => matchesKeywords(r.title));
+}
+
+// Paid aggregator. The scope-of-work / eligibility / submission text is free
+// to read, which is genuinely useful for drafting a proposal, but the
+// issuing agency's name and any contact person/phone/email are not shown -
+// only unlocked by buying the document or subscribing.
+const FIELD_LABELS = [
+  ['postedDate', 'Posted Date'],
+  ['productId', 'Product \\(RFP\\/RFQ\\/RFI\\/Solicitation\\/Tender\\/Bid Etc\\.\\) ID'],
+  ['budget', '\\[\\*\\]\\s*Budget'],
+  ['scopeOfService', '\\[\\*\\]\\s*Scope of Service'],
+  ['eligibility', '\\[\\*\\]\\s*Eligibility'],
+  ['workPerformance', '\\[\\*\\]\\s*Work Performance'],
+  ['proposalSubmission', '\\[\\*\\]\\s*Proposal Submission'],
+  ['expiryDate', 'Expiry Date'],
+  ['questionDeadline', 'Question Answer Deadline'],
+  ['category', 'Category'],
+  ['country', 'Country'],
+  ['state', 'State'],
+  ['costToDownload', 'Cost to Download This RFP Document'],
+];
+
+async function scrapeDetail(url) {
+  const { data } = await http.get(url);
+  const $ = cheerio.load(data);
+  const text = normalizedBlockText($, '.cat-des.p15');
+  const fields = extractLabeledFields(text, FIELD_LABELS);
+
+  const productLines = (fields.productId || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  const productId = productLines[0] || null;
+  const agencyHint = productLines.slice(1).join(' ') || null;
+
+  return {
+    projectName: productId,
+    opportunityTitle: null, // filled in from the listing entry by the caller
+    opportunityDescription: fields.scopeOfService || null,
+    fundingDonor: agencyHint,
+    budget: fields.budget || null,
+    targetLocation: [fields.state, fields.country].filter(Boolean).join(', ') || null,
+    deadline: fields.expiryDate || null,
+    questionDeadline: fields.questionDeadline || null,
+    eligibility: fields.eligibility || null,
+    workPerformance: fields.workPerformance || null,
+    proposalSubmission: fields.proposalSubmission || null,
+    category: fields.category || null,
+    postedDate: fields.postedDate || null,
+    costToDownloadUSD: fields.costToDownload || null,
+    contactPerson: null,
+    contactNumber: null,
+    contactEmail: null,
+    contactRaw: null,
+    accessNote:
+      'rfpmart.com does not publish the issuing agency name or any contact person/number/email for free. ' +
+      (fields.costToDownload
+        ? `The full RFP document ($${fields.costToDownload}) or a paid subscription likely contains the actual contact details.`
+        : 'A paid subscription is required to unlock the full RFP document, which likely contains contact details.'),
+  };
+}
+
+module.exports = { id, scrapeListings, scrapeDetail };
